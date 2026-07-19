@@ -890,6 +890,21 @@ impl<B: Backend> MvccEngine<B> {
     /// Performs a full garbage collection by repeatedly calling `gc_incremental`.
     ///
     /// This is maintained for compatibility.
+    //
+    // When removing the following method, you have to transform the following tests
+    //
+    // Test                        Lines
+    // ----                        -----
+    // tests/integration_tests.rs  97, 140, 514, 552, 606, 729, 1041, 1083
+    // tests/gc_tests.rs           343, 378
+    // tests/support/model.rs      50, 93
+    // tests/property_tests.rs     168
+    // benches/core_bench.rs       457
+    #[deprecated(
+        note = "unbounded: loops gc_incremental to completion and materializes the whole \
+                keyspace via all_keys(); production must use budgeted gc_incremental \
+                (see MVCC_GC_FIRST_CLASS_DESIGN.md §5.4)"
+    )]
     pub fn gc(&mut self, safe_point_ts: Timestamp, options: GcOptions) -> Result<GcStats, GcError> {
         let mut total_versions_removed = 0;
 

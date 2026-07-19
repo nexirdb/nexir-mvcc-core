@@ -1,4 +1,6 @@
+#![allow(deprecated)]
 #![allow(dead_code)]
+
 use nexir_mvcc_core::{
     Backend, CommittedVersion, Intent, Mutation, MvccEngine, PhysicalWrite, ReadGuard, Timestamp,
     TxnId,
