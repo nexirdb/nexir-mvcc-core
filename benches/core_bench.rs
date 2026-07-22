@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use criterion::{BatchSize, BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use nexir_mvcc_core::{
     CommittedVersion, InMemoryBackend, Intent, Mutation, MvccEngine, PhysicalWrite, ReadGuard,

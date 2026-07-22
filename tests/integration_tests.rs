@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use nexir_mvcc_core::{
     Backend, CommittedVersion, InMemoryBackend, Mutation, MvccEngine, Timestamp, TxnId,
 };
