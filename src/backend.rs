@@ -20,17 +20,23 @@ pub trait Backend {
     /// Returns the timestamp of the most recent committed version for a key, if any.
     fn get_latest_commit_ts(&self, key: &[u8]) -> Result<Option<Timestamp>, String>;
     /// Fetches the active intent for a given key, if any exists.
-    fn get_intent(&self, key: &[u8]) -> Result<Option<Intent>, String>;
+    fn get_intent(&self, _key: &[u8]) -> Result<Option<Intent>, String> {
+        Ok(None)
+    }
     /// Writes a single intent to the backend.
-    fn put_intent(&mut self, intent: Intent) -> Result<(), String>;
+    fn put_intent(&mut self, _intent: Intent) -> Result<(), String> {
+        Err("intent transactions are not supported by this backend".to_string())
+    }
     /// Removes an intent from the backend if it matches the given `txn_id` and `start_ts`.
     /// Returns `true` if removed, `false` otherwise.
     fn remove_intent(
         &mut self,
-        key: &[u8],
-        txn_id: TxnId,
-        start_ts: Timestamp,
-    ) -> Result<bool, String>;
+        _key: &[u8],
+        _txn_id: TxnId,
+        _start_ts: Timestamp,
+    ) -> Result<bool, String> {
+        Ok(false)
+    }
     /// Writes a single committed version to the backend.
     fn put_committed(&mut self, version: CommittedVersion) -> Result<(), String>;
     /// Writes multiple committed versions atomically. Must be all-or-nothing.
@@ -40,17 +46,33 @@ pub trait Backend {
     /// Returns a deduplicated, sorted list of all keys currently managed by the backend.
     fn all_keys(&self) -> Result<Vec<Key>, String>;
     /// Writes multiple intents atomically. Must be all-or-nothing.
-    fn put_intents_batch(&mut self, intents: Vec<Intent>) -> Result<(), String>;
+    fn put_intents_batch(&mut self, intents: Vec<Intent>) -> Result<(), String> {
+        if intents.is_empty() {
+            Ok(())
+        } else {
+            Err("intent transactions are not supported by this backend".to_string())
+        }
+    }
     /// Converts multiple intents into committed versions atomically.
     /// Must create the versions and remove the intents in a single durable transaction.
     fn commit_intents_batch(
         &mut self,
-        commits: Vec<CommittedVersion>,
-        removed_intents: Vec<(Key, TxnId, Timestamp)>,
-    ) -> Result<(), String>;
+        _commits: Vec<CommittedVersion>,
+        _removed_intents: Vec<(Key, TxnId, Timestamp)>,
+    ) -> Result<(), String> {
+        Err("intent transactions are not supported by this backend".to_string())
+    }
     /// Removes multiple intents atomically. Must be all-or-nothing.
-    fn remove_intents_batch(&mut self, intents: Vec<(Key, TxnId, Timestamp)>)
-    -> Result<(), String>;
+    fn remove_intents_batch(
+        &mut self,
+        intents: Vec<(Key, TxnId, Timestamp)>,
+    ) -> Result<(), String> {
+        if intents.is_empty() {
+            Ok(())
+        } else {
+            Err("intent transactions are not supported by this backend".to_string())
+        }
+    }
     /// Returns up to `limit` keys strictly ordered, starting from `start` (inclusive if provided).
     fn keys_from(&self, start: Option<&[u8]>, limit: usize) -> Result<Vec<Key>, String>;
     /// Returns up to `limit` keys starting with `prefix`, strictly ordered, starting from `start` if provided.
