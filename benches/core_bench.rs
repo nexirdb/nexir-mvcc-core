@@ -568,7 +568,7 @@ fn bench_gc(c: &mut Criterion) {
                     let key = deterministic_key(i);
                     engine
                         .apply_direct_batch(
-                            Timestamp(i),
+                            Timestamp(i.into()),
                             vec![PhysicalWrite {
                                 key,
                                 value: Some(vec![1]),

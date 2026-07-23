@@ -147,7 +147,7 @@ fn run_simulation(mix: WorkloadMix) {
     let mut rng = Lcg::new(0x5eed_1234_cafe_babe);
     let mut stats = Stats::default();
     let mut pending = VecDeque::new();
-    let mut next_ts = 2u64;
+    let mut next_ts = 2u128;
     let mut cursor = None;
     let started = Instant::now();
 
@@ -321,7 +321,7 @@ fn run_simulation(mix: WorkloadMix) {
         }
 
         if mix.enable_gc && op > 0 && op % 10 == 0 {
-            let safe_point = Timestamp(next_ts.saturating_sub(GC_RETENTION));
+            let safe_point = Timestamp(next_ts.saturating_sub(GC_RETENTION.into()));
             let t0 = Instant::now();
             let res = engine
                 .gc_incremental(

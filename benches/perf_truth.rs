@@ -39,7 +39,7 @@ fn bench_pure_read_path(c: &mut Criterion) {
         for (i, k) in keys.iter().enumerate() {
             engine
                 .apply_direct_batch(
-                    Timestamp(i as u64 + 1),
+                    Timestamp(i as u128 + 1),
                     vec![PhysicalWrite {
                         key: k.clone(),
                         value: Some(vec![1]),
@@ -248,7 +248,7 @@ fn bench_guarded_writes(c: &mut Criterion) {
         let keys: Vec<_> = (0..10_000).map(key).collect();
         let mut latest_ts = Vec::with_capacity(keys.len());
         for (i, k) in keys.iter().enumerate() {
-            let commit_ts = Timestamp(i as u64 + 1);
+            let commit_ts = Timestamp(i as u128 + 1);
             engine
                 .apply_direct_batch(
                     commit_ts,

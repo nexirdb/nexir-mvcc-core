@@ -1,7 +1,8 @@
 #![allow(deprecated)]
 
 use nexir_mvcc_core::{
-    Backend, CommittedVersion, InMemoryBackend, Mutation, MvccEngine, Timestamp, TxnId,
+    Backend, CommittedVersion, InMemoryBackend, Mutation, MvccEngine, PhysicalWrite, Timestamp,
+    TxnId,
 };
 
 // ------------------------------------------------------------------
@@ -500,13 +501,18 @@ fn test_gc_old_versions_removed() {
         engine
             .prewrite(
                 TxnId(i),
-                Timestamp(i * 10 - 5),
+                Timestamp((i * 10 - 5).into()),
                 b"k".to_vec(),
                 Mutation::Put(format!("v{}", i).into_bytes()),
             )
             .unwrap();
         engine
-            .commit(TxnId(i), b"k", Timestamp(i * 10 - 5), Timestamp(i * 10))
+            .commit(
+                TxnId(i),
+                b"k",
+                Timestamp((i * 10 - 5).into()),
+                Timestamp((i * 10).into()),
+            )
             .unwrap();
     }
 
@@ -532,6 +538,35 @@ fn test_gc_old_versions_removed() {
         engine.read(b"k", Timestamp(50)).unwrap(),
         Some(b"v5".to_vec())
     );
+}
+
+#[test]
+fn test_u128_timestamp_ordering_across_u64_boundary() {
+    let mut engine = MvccEngine::new(InMemoryBackend::new());
+    let low = Timestamp(u64::MAX as u128);
+    let high = Timestamp(low.0 + 1);
+
+    engine
+        .apply_direct_batch(
+            low,
+            vec![PhysicalWrite {
+                key: b"wide".to_vec(),
+                value: Some(b"low".to_vec()),
+            }],
+        )
+        .unwrap();
+    engine
+        .apply_direct_batch(
+            high,
+            vec![PhysicalWrite {
+                key: b"wide".to_vec(),
+                value: Some(b"high".to_vec()),
+            }],
+        )
+        .unwrap();
+
+    assert_eq!(engine.read(b"wide", low).unwrap(), Some(b"low".to_vec()));
+    assert_eq!(engine.read(b"wide", high).unwrap(), Some(b"high".to_vec()));
 }
 
 #[test]

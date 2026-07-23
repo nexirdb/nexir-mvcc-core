@@ -9,7 +9,7 @@ mod support;
 use support::model::*;
 
 fn ts_strategy() -> impl Strategy<Value = Timestamp> {
-    (1u64..100u64).prop_map(Timestamp)
+    (1u128..100u128).prop_map(Timestamp)
 }
 
 fn txn_id_strategy() -> impl Strategy<Value = TxnId> {
@@ -25,7 +25,7 @@ fn value_strategy() -> impl Strategy<Value = Vec<u8>> {
 }
 
 fn action_strategy() -> impl Strategy<Value = Action> {
-    let ts = (1u64..20u64).prop_map(Timestamp);
+    let ts = (1u128..20u128).prop_map(Timestamp);
     let txn = (1u64..5u64).prop_map(TxnId);
     let key = prop::collection::vec(0u8..3u8, 1..2);
     let val = prop::collection::vec(0u8..3u8, 1..2);
@@ -150,8 +150,8 @@ proptest! {
         key in key_strategy(),
         v1 in value_strategy(),
         v2 in value_strategy(),
-        ts1 in 1u64..50u64,
-        ts2 in 51u64..100u64,
+        ts1 in 1u128..50u128,
+        ts2 in 51u128..100u128,
     ) {
         let backend = InMemoryBackend::new();
         let mut engine = MvccEngine::new(backend);
