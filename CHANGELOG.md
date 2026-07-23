@@ -4,6 +4,15 @@ All notable changes to `nexir-mvcc-core` will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows semantic versioning once published.
 
+## [0.2.0] - 2026-07-23
+
+### Changed
+
+- Widened the opaque ordered `Timestamp` from `u64` to `u128`.
+- Encoded every timestamp as exactly 16-byte big-endian data.
+- Advanced the record codec version and rejected the old eight-byte timestamp format.
+- Updated backend ranges, conformance coverage, property tests, examples, and benchmarks for the wider timestamp domain.
+
 ## [0.1.0] - 2026-07-04
 
 ### Added

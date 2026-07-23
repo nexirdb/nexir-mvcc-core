@@ -7,7 +7,7 @@ A standalone, deterministic Multi-Version Concurrency Control (MVCC) core librar
 ## Key Features
 
 - **Strict Separation of Concerns**: Core logic runs deterministically in memory. All disk/durable state is managed through a clean `Backend` trait.
-- **Timestamp-Based Ordering**: Native support for caller-supplied logical timestamps (`start_ts`, `commit_ts`, `read_ts`).
+- **Timestamp-Based Ordering**: Native support for caller-supplied, opaque `u128` logical timestamps (`start_ts`, `commit_ts`, `read_ts`).
 - **Two-Phase Intent Transactions**: First-class support for single-key and multi-key intent transactions via `prewrite`, `commit`, `abort`, `prewrite_batch`, `commit_batch`, and `abort_batch`.
 - **Atomic Batches**: Support for multi-key `prewrite_batch`, `commit_batch`, and `abort_batch` ensures all-or-nothing transactional guarantees.
 - **Direct & Guarded Fast Paths**: `apply_direct_batch` and `apply_guarded_batch` bypass the intent system for high-performance single-roundtrip writes, complete with Compare-And-Swap (CAS) guard validation.
@@ -99,7 +99,7 @@ To verify your own backend implementation, enable the `conformance` feature in y
 
 ```toml
 [dependencies]
-nexir-mvcc-core = { version = "0.1", features = ["conformance"] }
+nexir-mvcc-core = { version = "0.2", features = ["conformance"] }
 ```
 
 And run the macro in your tests:

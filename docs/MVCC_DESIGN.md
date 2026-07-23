@@ -23,7 +23,7 @@ Adapters own timestamp assignment, durable storage, ordered mutation application
 All timestamps are caller-supplied. The engine does **not** call `std::time` or any wall-clock source.
 
 ```rust
-pub struct Timestamp(pub u64);
+pub struct Timestamp(pub u128);
 ```
 
 Supported timestamp roles:
@@ -110,7 +110,7 @@ The adapter is responsible for computing a safe `safe_point_ts` from active read
 
 ## Serialization
 
-The codec uses an explicit version byte (`0x01`) and big-endian length-prefixed byte arrays. No reliance on Rust enum layout. Decoding is strictly canonical: the decoder enforces exact buffer consumption, explicitly rejecting records with trailing garbage bytes.
+The codec uses an explicit version byte (`0x02`), exactly 16-byte big-endian timestamps, and big-endian length-prefixed byte arrays. The byte order preserves numeric timestamp ordering. Decoding is strictly canonical: the decoder rejects old codec versions, truncated timestamp fields, and records with trailing garbage bytes.
 
 See `tests/codec_tests.rs` for golden byte fixtures.
 
