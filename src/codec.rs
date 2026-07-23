@@ -1,8 +1,8 @@
 use crate::error::CodecError;
 use crate::types::{CommittedVersion, Intent, Mutation, Timestamp, TxnId};
 
-// Codec version byte. Only 0x01 is defined.
-const CODEC_VERSION: u8 = 0x01;
+// Codec version byte. Only 0x02 is defined.
+const CODEC_VERSION: u8 = 0x02;
 const RECORD_COMMITTED: u8 = 0x01;
 const RECORD_INTENT: u8 = 0x02;
 const FLAG_PRESENT: u8 = 0x01;
@@ -50,6 +50,21 @@ fn decode_u64(buf: &[u8], offset: &mut usize) -> Result<u64, CodecError> {
     Ok(val)
 }
 
+fn encode_u128(v: u128) -> [u8; 16] {
+    v.to_be_bytes()
+}
+
+fn decode_u128(buf: &[u8], offset: &mut usize) -> Result<u128, CodecError> {
+    if buf.len() < *offset + 16 {
+        return Err(CodecError::Decode("truncated u128".into()));
+    }
+    let bytes: [u8; 16] = buf[*offset..*offset + 16]
+        .try_into()
+        .map_err(|_| CodecError::Decode("truncated u128".into()))?;
+    *offset += 16;
+    Ok(u128::from_be_bytes(bytes))
+}
+
 fn encode_bytes(buf: &mut Vec<u8>, bytes: &[u8]) -> Result<(), CodecError> {
     let len =
         u32::try_from(bytes.len()).map_err(|_| CodecError::Encode("byte slice too long".into()))?;
@@ -74,7 +89,7 @@ pub fn encode_committed(version: &CommittedVersion) -> Result<Vec<u8>, CodecErro
     buf.push(CODEC_VERSION);
     buf.push(RECORD_COMMITTED);
     encode_bytes(&mut buf, &version.key)?;
-    buf.extend_from_slice(&encode_u64(version.commit_ts.0));
+    buf.extend_from_slice(&encode_u128(version.commit_ts.0));
     match &version.value {
         Some(v) => {
             buf.push(FLAG_PRESENT);
@@ -113,7 +128,7 @@ pub fn decode_committed(buf: &[u8]) -> Result<CommittedVersion, CodecError> {
         )));
     }
     let key = decode_bytes(buf, &mut offset)?;
-    let commit_ts = Timestamp(decode_u64(buf, &mut offset)?);
+    let commit_ts = Timestamp(decode_u128(buf, &mut offset)?);
     if buf.len() < offset + 1 {
         return Err(CodecError::Decode("missing value flag".into()));
     }
@@ -143,11 +158,11 @@ pub fn encode_intent(intent: &Intent) -> Result<Vec<u8>, CodecError> {
     buf.push(RECORD_INTENT);
     encode_bytes(&mut buf, &intent.key)?;
     buf.extend_from_slice(&encode_u64(intent.txn_id.0));
-    buf.extend_from_slice(&encode_u64(intent.start_ts.0));
+    buf.extend_from_slice(&encode_u128(intent.start_ts.0));
     match intent.min_commit_ts {
         Some(ts) => {
             buf.push(FLAG_PRESENT);
-            buf.extend_from_slice(&encode_u64(ts.0));
+            buf.extend_from_slice(&encode_u128(ts.0));
         }
         None => {
             buf.push(FLAG_ABSENT);
@@ -192,14 +207,14 @@ pub fn decode_intent(buf: &[u8]) -> Result<Intent, CodecError> {
     }
     let key = decode_bytes(buf, &mut offset)?;
     let txn_id = TxnId(decode_u64(buf, &mut offset)?);
-    let start_ts = Timestamp(decode_u64(buf, &mut offset)?);
+    let start_ts = Timestamp(decode_u128(buf, &mut offset)?);
     if buf.len() < offset + 1 {
         return Err(CodecError::Decode("missing min_commit_ts flag".into()));
     }
     let flag = buf[offset];
     offset += 1;
     let min_commit_ts = if flag == FLAG_PRESENT {
-        Some(Timestamp(decode_u64(buf, &mut offset)?))
+        Some(Timestamp(decode_u128(buf, &mut offset)?))
     } else if flag == FLAG_ABSENT {
         None
     } else {

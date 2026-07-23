@@ -2,7 +2,7 @@ use std::fmt;
 
 /// A monotonic logical timestamp used for ordering versions and intents.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Timestamp(pub u64);
+pub struct Timestamp(pub u128);
 
 /// A unique identifier for a distributed or local transaction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
