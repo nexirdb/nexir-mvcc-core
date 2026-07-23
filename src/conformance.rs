@@ -5,6 +5,146 @@
 
 #![allow(dead_code)]
 
+/// Reusable conformance suite for durable backends that store committed MVCC
+/// versions but deliberately do not implement optional intent transactions.
+#[macro_export]
+macro_rules! test_committed_backend_conformance {
+    ($factory:expr) => {
+        #[test]
+        fn committed_versions_are_ascending_and_cross_u64() {
+            use $crate::Backend;
+            let mut backend = $factory();
+            let boundary = u64::MAX as u128;
+            for timestamp in [boundary + 1, boundary - 1, boundary] {
+                backend
+                    .put_committed($crate::CommittedVersion {
+                        key: b"k".to_vec(),
+                        commit_ts: $crate::Timestamp(timestamp),
+                        value: Some(timestamp.to_be_bytes().to_vec()),
+                    })
+                    .unwrap();
+            }
+            let timestamps: Vec<_> = backend
+                .get_committed_versions(b"k")
+                .unwrap()
+                .into_iter()
+                .map(|version| version.commit_ts)
+                .collect();
+            assert_eq!(
+                timestamps,
+                [
+                    $crate::Timestamp(boundary - 1),
+                    $crate::Timestamp(boundary),
+                    $crate::Timestamp(boundary + 1),
+                ]
+            );
+        }
+
+        #[test]
+        fn committed_batch_and_visibility_are_conformant() {
+            use $crate::Backend;
+            let mut backend = $factory();
+            backend
+                .put_committed_batch(vec![
+                    $crate::CommittedVersion {
+                        key: b"a".to_vec(),
+                        commit_ts: $crate::Timestamp(10),
+                        value: Some(b"old".to_vec()),
+                    },
+                    $crate::CommittedVersion {
+                        key: b"a".to_vec(),
+                        commit_ts: $crate::Timestamp(20),
+                        value: Some(b"new".to_vec()),
+                    },
+                    $crate::CommittedVersion {
+                        key: b"b".to_vec(),
+                        commit_ts: $crate::Timestamp(10),
+                        value: None,
+                    },
+                ])
+                .unwrap();
+            assert_eq!(
+                backend
+                    .get_visible_committed(b"a", $crate::Timestamp(15))
+                    .unwrap()
+                    .unwrap()
+                    .value,
+                Some(b"old".to_vec())
+            );
+            assert_eq!(
+                backend.get_latest_commit_ts(b"a").unwrap(),
+                Some($crate::Timestamp(20))
+            );
+            assert_eq!(
+                backend.all_keys().unwrap(),
+                vec![b"a".to_vec(), b"b".to_vec()]
+            );
+        }
+
+        #[test]
+        fn committed_key_scans_and_timestamp_pages_are_conformant() {
+            use $crate::Backend;
+            let mut backend = $factory();
+            for (key, timestamp) in [
+                (b"aa".as_slice(), 10),
+                (b"aa".as_slice(), 20),
+                (b"ab".as_slice(), 10),
+                (b"b".as_slice(), 10),
+            ] {
+                backend
+                    .put_committed($crate::CommittedVersion {
+                        key: key.to_vec(),
+                        commit_ts: $crate::Timestamp(timestamp),
+                        value: Some(vec![timestamp as u8]),
+                    })
+                    .unwrap();
+            }
+            assert_eq!(
+                backend.keys_from(Some(b"ab"), 2).unwrap(),
+                vec![b"ab".to_vec(), b"b".to_vec()]
+            );
+            assert_eq!(
+                backend.keys_from_prefix(b"a", None, 10).unwrap(),
+                vec![b"aa".to_vec(), b"ab".to_vec()]
+            );
+            assert_eq!(
+                backend
+                    .get_committed_timestamps_before(b"aa", $crate::Timestamp(30), 2)
+                    .unwrap(),
+                vec![$crate::Timestamp(20), $crate::Timestamp(10)]
+            );
+        }
+
+        #[test]
+        fn committed_removal_and_tombstone_collapse_are_conformant() {
+            use $crate::Backend;
+            let mut backend = $factory();
+            backend
+                .put_committed_batch(vec![
+                    $crate::CommittedVersion {
+                        key: b"k".to_vec(),
+                        commit_ts: $crate::Timestamp(10),
+                        value: Some(b"value".to_vec()),
+                    },
+                    $crate::CommittedVersion {
+                        key: b"k".to_vec(),
+                        commit_ts: $crate::Timestamp(20),
+                        value: None,
+                    },
+                ])
+                .unwrap();
+            backend
+                .remove_committed_version(b"k", $crate::Timestamp(10))
+                .unwrap();
+            assert_eq!(backend.get_committed_versions(b"k").unwrap().len(), 1);
+            backend
+                .collapse_tombstone(b"k", $crate::Timestamp(20), Vec::new())
+                .unwrap();
+            assert!(backend.get_committed_versions(b"k").unwrap().is_empty());
+        }
+    };
+}
+
 /// Reusable macro to test a `Backend` implementation for MVCC conformance.
 ///
 /// Adapters should invoke this in their test modules passing a factory closure
