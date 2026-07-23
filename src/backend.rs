@@ -113,7 +113,7 @@ impl Backend for InMemoryBackend {
     }
 
     fn get_latest_committed(&self, key: &[u8]) -> Result<Option<CommittedVersion>, String> {
-        let range = (key.to_vec(), Timestamp(0))..=(key.to_vec(), Timestamp(u64::MAX));
+        let range = (key.to_vec(), Timestamp(0))..=(key.to_vec(), Timestamp(u128::MAX));
         if let Some(((k, ts), value)) = self.committed.range(range).next_back()
             && k.as_slice() == key
         {
@@ -145,7 +145,7 @@ impl Backend for InMemoryBackend {
     }
 
     fn get_latest_commit_ts(&self, key: &[u8]) -> Result<Option<Timestamp>, String> {
-        let range = (key.to_vec(), Timestamp(0))..=(key.to_vec(), Timestamp(u64::MAX));
+        let range = (key.to_vec(), Timestamp(0))..=(key.to_vec(), Timestamp(u128::MAX));
         if let Some(((k, ts), _)) = self.committed.range(range).next_back()
             && k.as_slice() == key
         {
@@ -340,7 +340,7 @@ impl Backend for InMemoryBackend {
 impl InMemoryBackend {
     fn maybe_remove_from_keys(&mut self, key: &[u8]) {
         if !self.intents.contains_key(key) {
-            let range = (key.to_vec(), Timestamp(0))..=(key.to_vec(), Timestamp(u64::MAX));
+            let range = (key.to_vec(), Timestamp(0))..=(key.to_vec(), Timestamp(u128::MAX));
             if self.committed.range(range).next().is_none() {
                 self.all_keys_set.remove(key);
             }
