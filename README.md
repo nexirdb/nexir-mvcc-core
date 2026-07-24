@@ -12,6 +12,7 @@ A standalone, deterministic Multi-Version Concurrency Control (MVCC) core librar
 - **Atomic Batches**: Support for multi-key `prewrite_batch`, `commit_batch`, and `abort_batch` ensures all-or-nothing transactional guarantees.
 - **Direct & Guarded Fast Paths**: `apply_direct_batch` and `apply_guarded_batch` bypass the intent system for high-performance single-roundtrip writes, complete with Compare-And-Swap (CAS) guard validation.
 - **Incremental GC**: Deterministic history retention with `gc_incremental`, cursor resumption, and caller-supplied work budgets.
+- **Per-Key GC Planning**: Read-only, bounded plans with explicit obsolete timestamps for adapters that own their own work discovery and atomic persistence.
 - **Backend Conformance Suite**: Built-in test macros via the `conformance` feature to easily verify that your custom storage layer meets the logical backend contract (note: adapters must still provide their own crash atomicity tests).
 
 ## Scope and Integration
@@ -32,6 +33,11 @@ The core intentionally does not own:
 - production metrics registries.
 
 Adapters own those concerns and must serialize mutation apply for each ordered write domain.
+
+The core treats every `CommittedVersion.value` as opaque bytes. It decides only
+generic MVCC visibility, keeper, safe-point, and final-tombstone semantics.
+Adapters own payload validation, candidate discovery, durable maintenance
+queues, and the atomic storage batch that applies a plan.
 
 ## Quick Start
 

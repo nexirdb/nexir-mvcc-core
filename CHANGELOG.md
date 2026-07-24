@@ -4,6 +4,32 @@ All notable changes to `nexir-mvcc-core` will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows semantic versioning once published.
 
+## [0.3.0] - 2026-07-23
+
+### Added
+
+- Added `MvccEngine::plan_key_gc` for deterministic, read-only planning of one
+  logical key at a caller-provided safe point.
+- Added a per-key history-page budget, explicit obsolete timestamps, a
+  separately identified final tombstone, and a conservative completion signal.
+- Added coverage for bounded resumption, safe-point retention, tombstone
+  collapse, deletion and recreation, opaque payloads, deterministic output, and
+  `u128` timestamp ordering.
+
+### Changed
+
+- Added the planner as a public API and advanced the crate from `0.2.0` to
+  `0.3.0`.
+
+### Notes
+
+- The public `Backend` trait is unchanged. Its existing bounded
+  `get_visible_committed`, `get_latest_commit_ts`, `get_intent`, and
+  `get_committed_timestamps_before` operations are sufficient for per-key
+  planning without materializing an unbounded version chain.
+- Candidate discovery, durable deletion batches, storage-engine integration,
+  and payload interpretation remain adapter responsibilities.
+
 ## [0.2.0] - 2026-07-23
 
 ### Changed

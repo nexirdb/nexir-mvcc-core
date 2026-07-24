@@ -96,7 +96,13 @@ The engine must ensure that a read-derived mutation cannot silently overwrite an
 
 ## History Retention and GC
 
-The core exposes both `gc_incremental(safe_point_ts, cursor, options: GcOptions)` and the compatibility helper `gc(safe_point_ts, options: GcOptions)`. The incremental API is the preferred production shape because callers can bound work per step using `GcBudget`.
+The core exposes `gc_incremental(safe_point_ts, cursor, options: GcOptions)`,
+the compatibility helper `gc(safe_point_ts, options: GcOptions)`, and
+`plan_key_gc(key, safe_point_ts, options: KeyGcOptions)`. The incremental API
+bounds a core-owned keyspace pass with `GcBudget`. The per-key planner is the
+read-only alternative for adapters that own work discovery: it returns explicit
+obsolete timestamps without scanning unrelated logical keys or mutating the
+backend.
 
 GC removes old committed versions subject to:
 
