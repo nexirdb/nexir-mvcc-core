@@ -94,6 +94,9 @@ pub enum GcError {
     /// The provided GC budget is invalid (e.g., max_keys or max_versions is 0).
     #[error("invalid gc budget: max_keys and max_versions must be > 0")]
     InvalidGcBudget,
+    /// The provided per-key planning budget is invalid.
+    #[error("invalid per-key gc budget: max_versions_examined must be > 0")]
+    InvalidKeyGcBudget,
 }
 
 /// Error during codec operations.

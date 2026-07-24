@@ -29,7 +29,8 @@ pub mod conformance;
 pub use backend::{Backend, InMemoryBackend};
 pub use codec::{decode_committed, decode_intent, encode_committed, encode_intent};
 pub use engine::{
-    GcBudget, GcOptions, GcStats, IncrementalGcCursor, IncrementalGcResult, MvccEngine,
+    GcBudget, GcOptions, GcStats, IncrementalGcCursor, IncrementalGcResult, KeyGcOptions,
+    KeyGcPlan, MvccEngine,
 };
 pub use error::{
     AbortError, BatchAbortError, BatchCommitError, BatchError, BatchPrewriteError, CodecError,

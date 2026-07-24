@@ -37,6 +37,49 @@ pub struct GcOptions {
     pub collapse_final_tombstones: bool,
 }
 
+/// Options for a read-only, single-key garbage-collection plan.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct KeyGcOptions {
+    /// Maximum number of obsolete, pre-keeper version timestamps to examine.
+    ///
+    /// The planner also performs a fixed number of bounded point lookups to
+    /// locate the safe-point keeper and determine whether it is the latest
+    /// committed version. Those point lookups do not consume this history-page
+    /// budget.
+    pub max_versions_examined: usize,
+    /// Explicit opt-in retention policy for final tombstones.
+    ///
+    /// Callers using this opt-in feature MUST ensure that the safe point is
+    /// derived from a monotonic log index and that no future read or write will
+    /// occur below this safe point, as collapsing final tombstones changes
+    /// `read_with_version` and guard history semantics below the safe point.
+    pub collapse_final_tombstones: bool,
+}
+
+/// A deterministic, read-only garbage-collection plan for one logical key.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KeyGcPlan {
+    /// The exact logical key that was planned.
+    pub key: Vec<u8>,
+    /// Explicit obsolete version timestamps to remove, ordered newest first.
+    ///
+    /// This list never includes the safe-point keeper. If
+    /// [`Self::collapse_tombstone`] is present, the caller must remove that
+    /// tombstone and these older versions atomically.
+    pub versions_to_remove: Vec<Timestamp>,
+    /// The final tombstone timestamp to collapse, when explicitly permitted.
+    pub collapse_tombstone: Option<Timestamp>,
+    /// Number of obsolete, pre-keeper version timestamps examined.
+    pub versions_examined: usize,
+    /// Whether the planner established that no eligible debt remains unplanned.
+    ///
+    /// A page that exactly fills the budget is conservatively incomplete,
+    /// because the bounded backend contract does not require a separate
+    /// unbudgeted lookahead read. After applying the explicit removals, planning
+    /// the same key again will establish completion or return another page.
+    pub complete: bool,
+}
+
 /// Cursor to resume incremental garbage collection.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IncrementalGcCursor {
@@ -681,6 +724,78 @@ impl<B: Backend> MvccEngine<B> {
             .put_committed_batch(commits)
             .map_err(BatchError::Backend)?;
         Ok(())
+    }
+
+    /// Produces a bounded, deterministic GC plan for one logical key.
+    ///
+    /// Planning never mutates the backend. The newest committed version visible
+    /// at `safe_point_ts` is the keeper, and ordinary removals are restricted to
+    /// explicit timestamps strictly older than that keeper. Versions newer than
+    /// the safe point are never included.
+    ///
+    /// A final tombstone can be returned in [`KeyGcPlan::collapse_tombstone`]
+    /// only when the caller opted in, the key has no active intent, the
+    /// tombstone is the latest committed version, and the complete older history
+    /// fits below the planning budget. The caller must remove the tombstone and
+    /// every timestamp in [`KeyGcPlan::versions_to_remove`] atomically.
+    pub fn plan_key_gc(
+        &self,
+        key: &[u8],
+        safe_point_ts: Timestamp,
+        options: KeyGcOptions,
+    ) -> Result<KeyGcPlan, GcError> {
+        if options.max_versions_examined == 0 {
+            return Err(GcError::InvalidKeyGcBudget);
+        }
+
+        let Some(keeper) = self
+            .backend
+            .get_visible_committed(key, safe_point_ts)
+            .map_err(GcError::Backend)?
+        else {
+            return Ok(KeyGcPlan {
+                key: key.to_vec(),
+                versions_to_remove: Vec::new(),
+                collapse_tombstone: None,
+                versions_examined: 0,
+                complete: true,
+            });
+        };
+
+        let collapse_final_tombstone = if options.collapse_final_tombstones
+            && keeper.value.is_none()
+            && self
+                .backend
+                .get_intent(key)
+                .map_err(GcError::Backend)?
+                .is_none()
+        {
+            self.backend
+                .get_latest_commit_ts(key)
+                .map_err(GcError::Backend)?
+                == Some(keeper.commit_ts)
+        } else {
+            false
+        };
+
+        let mut versions_to_remove = self
+            .backend
+            .get_committed_timestamps_before(key, keeper.commit_ts, options.max_versions_examined)
+            .map_err(GcError::Backend)?;
+
+        let complete = versions_to_remove.len() < options.max_versions_examined;
+        versions_to_remove.truncate(options.max_versions_examined);
+        let versions_examined = versions_to_remove.len();
+
+        Ok(KeyGcPlan {
+            key: key.to_vec(),
+            versions_to_remove,
+            collapse_tombstone: collapse_final_tombstone
+                .then_some(keeper.commit_ts)
+                .filter(|_| complete),
+            versions_examined,
+            complete,
+        })
     }
 
     /// Performs an incremental step of garbage collection.
